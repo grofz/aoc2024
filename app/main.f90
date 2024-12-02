@@ -3,8 +3,9 @@ program main
   use day2402_mod, only: day2402
   implicit none
 
-  goto 01
+!goto 100
 
-  01 call day2401('inp/01/input.txt')
-  02 call day2402('inp/02/input.txt')
+  print '("Advent of Code 2024 (www.adventofcode.com)")'
+  call day2401('inp/01/input.txt')
+  call day2402('inp/02/input.txt')
 end program main
