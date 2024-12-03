@@ -59,7 +59,9 @@ contains
 
   logical function report_issafe(this) result(issafe)
     class(report_t), intent(in) :: this
-
+!
+! Safe if monotonous serie and the difference between 1-3
+!
     logical :: ismonotonous, isclose
 
     ismonotonous = all(this%dif>0) .or. all(this%dif<0)
@@ -72,12 +74,13 @@ contains
     class(report_t), intent(in) :: this
 !
 ! Remove one number from the report and then check for "safety" of the reduced
-! report
+! report.
 !
     type(report_t) :: reduced
     integer :: i
 
-    issafe = .false.
+    issafe = this%safe_p1()
+    if (issafe) return
     do i=1, size(this%arr)
       reduced = report_t(this, i)
       if (reduced%safe_p1()) then
