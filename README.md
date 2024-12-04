@@ -16,3 +16,6 @@ Parsing exercise - find "mul(a,b)" and "do()" and "don't()" instruction.
 Clumsy algorithm using "state-machine", a more general solution to
 parsing could be made (if time permits)...
 
+## 4: Ceres Search
+On a 2D character map, count how many times a word "XMAS" can be found.
+The loop over neighbours of a particular position on the map.
