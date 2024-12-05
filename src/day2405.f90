@@ -19,8 +19,6 @@ module day2405_mod
 
   type job_t
     integer, allocatable :: pages(:)
-  contains
-    procedure :: middle => job_middle
   end type job_t
   interface job_t
     module procedure job_fromstr
@@ -39,23 +37,19 @@ contains
     ans1 = 0
     ans2 = 0
     do i=1,size(root%jobs)
-      if (verify_page_position(root%jobs(i)%pages, root%rules)) then
-        ! Part 1
-        associate(x=>root%jobs(i)%middle())
-          !print '("P1 ",i0)', x
-          ans1 = ans1 + x
-        end associate
-      else
-        ! Part 2
-        do
-          call correct_page_position(root%jobs(i)%pages,root%rules,was_ok)
-          if (was_ok) exit
-        end do
-        associate(x=>root%jobs(i)%middle())
-          !print '("P2 ",i0)', x
-          ans2 = ans2 + x
-        end associate
-      end if
+      associate(pages=>root%jobs(i)%pages)
+        call correct_page_position(pages, root%rules, was_ok, .false.)
+        if (was_ok) then ! Part 1
+          ans1 = ans1 + middle(pages)
+        else             ! Part 2
+          !print '(*(i3))', root%jobs(i)%pages
+          do while (.not. was_ok)
+            call correct_page_position(pages, root%rules, was_ok, .true.)
+            !print '(*(i3))', root%jobs(i)%pages
+          end do
+          ans2 = ans2 + middle(pages)
+        end if
+      end associate
     end do
     print '("Ans 05/1 ",i0,l2)', ans1, ans1==5208
     print '("Ans 05/1 ",i0,l2)', ans2, ans2==6732
@@ -63,96 +57,90 @@ contains
   end subroutine day2405
 
 
-  function verify_page_position(pages,rules) result(isok)
-    integer, intent(in) :: pages(:)
+  logical function is_a_lt_b(a, b, rules)
+    integer, intent(in) :: a, b
     type(rule_t), intent(in) :: rules(:)
-    logical :: isok
 
-    integer :: verified_page, i, j
+    integer :: i
 
-    isok = .true.
-    one_loop: do verified_page=1, size(pages)
-      ! pages before
-      do i=1, verified_page-1
-        do j=1, size(rules)
-          if (rules(j)%a == pages(verified_page) .and. &
-              rules(j)%b == pages(i)) then
-            isok = .false.
-            exit one_loop
-          end if
-        end do
-      end do
-      ! pages after
-      do i=verified_page+1, size(pages)
-        do j=1, size(rules)
-          if (rules(j)%a == pages(i) .and. &
-              rules(j)%b == pages(verified_page)) then
-            isok = .false.
-            exit one_loop
-          end if
-        end do
-      end do
-    end do one_loop
-  end function verify_page_position
+    is_a_lt_b = .true. ! assume valid until proven otherwise
+    do i=1,size(rules)
+      if (rules(i)%b /= a .or. rules(i)%a /= b) cycle
+      is_a_lt_b = .false.
+      exit
+    end do
+  end function is_a_lt_b
 
 
-  ! TODO - remove duplicit code
-  ! TODO - optimize for speed
-  subroutine correct_page_position(pages,rules,wasok)
+  ! TODO - can be optimized for speed?
+  subroutine correct_page_position(pages, rules, was_ok, fixing)
     integer, intent(in out) :: pages(:)
     type(rule_t), intent(in) :: rules(:)
-    logical, intent(out) :: wasok
+    logical, intent(out) :: was_ok
+    logical, intent(in) :: fixing ! try to fix it?
 
     integer :: verified_page, i, j
 
-    wasok = .true.
+    was_ok = .true.
     one_loop: do verified_page=1, size(pages)
       ! pages before
       do i=1, verified_page-1
-        do j=1, size(rules)
-          if (rules(j)%a == pages(verified_page) .and. &
-              rules(j)%b == pages(i)) then
-            wasok = .false.
-            call move_before(pages,verified_page,i) 
-            exit one_loop
-          end if
-        end do
+        if (.not. is_a_lt_b(pages(i),pages(verified_page), rules)) then
+          was_ok = .false.
+          if (fixing) call move_before(pages,verified_page,i)
+          exit one_loop
+        end if
       end do
       ! pages after
       do i=verified_page+1, size(pages)
-        do j=1, size(rules)
-          if (rules(j)%a == pages(i) .and. &
-              rules(j)%b == pages(verified_page)) then
-            wasok = .false.
-            call move_before(pages,i,verified_page) 
-            exit one_loop
-          end if
-        end do
+        if (.not. is_a_lt_b(pages(verified_page),pages(i), rules)) then
+          was_ok = .false.
+          if (fixing) call move_before(pages,i,verified_page)
+          exit one_loop
+        end if
       end do
     end do one_loop
   end subroutine correct_page_position
 
 
-  subroutine move_before(arr,what,where)
+  subroutine move_before(arr, what, where_to)
     integer, intent(inout) :: arr(:)
-    integer, intent(in) :: what, where
-
+    integer, intent(in) :: what, where_to
+!
+! Move item at the position "what" before the item at the position
+! "where_to",
+!
     integer :: i
 
-    if (what < where) error stop 'what less where'
-    do i=what, where+1, -1
+    if (what < where_to) error stop 'what is less than where'
+    do i=what, where_to+1, -1
       call swap(arr(i-1), arr(i))
     end do
   contains
-    subroutine swap(a,b)
+    subroutine swap(a, b)
       integer, intent(inout) :: a, b
       integer :: t
-      t = a
-      a = b
-      b = t
+      t = a;  a = b;  b = t
     end subroutine
-  end subroutine
+  end subroutine move_before
 
+
+  function middle(arr) result(mid)
+    integer, intent(in) :: arr(:)
+    integer :: mid
+!
+! Return the middle item from the array
+!
+    if (mod(size(arr),2)==0) error stop 'even has no middle'
+    associate (i=>size(arr)/2 + 1)
+      mid = arr(i)
+    end associate
+  end function middle
+
+
+  ! =================
+  ! Parsing the input
+  ! =================
 
   function rule_fromstr(str) result(new)
     character(len=*), intent(in) :: str
@@ -163,7 +151,7 @@ contains
     if (i==0) error stop 'wrong format for a rule'
     read(str(:i-1),*) new%a
     read(str(i+1:),*) new%b
-  end function
+  end function rule_fromstr
 
 
   function job_fromstr(str) result(new)
@@ -178,7 +166,7 @@ contains
     do i=1, size(items)
       read(items(i)%str,*) new%pages(i)
     end do
-  end function 
+  end function job_fromstr
 
 
   function root_fromfile(file) result(new)
@@ -206,18 +194,6 @@ contains
         new%jobs = [new%jobs, job_t(lines(i)%str)]
       end if
     end do
-  end function
-
-
-  function job_middle(this) result(mid)
-    class(job_t), intent(in) :: this
-    integer :: mid
-
-    integer :: i
-    
-    if (mod(size(this%pages),2)==0) error stop 'even has no middle'
-    i = size(this%pages)/2 + 1
-    mid = this%pages(i)
-  end function job_middle
+  end function root_fromfile
 
 end module day2405_mod

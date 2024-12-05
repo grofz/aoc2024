@@ -19,3 +19,8 @@ parsing could be made (if time permits)...
 ## 4: Ceres Search
 On a 2D character map, count how many times a word "XMAS" can be found.
 The loop over neighbours of a particular position on the map.
+
+## 5: Print Queue
+Verify if the order of numbers in an array meets the list of rules.
+In part 2, reorder the numbers according to the rules.
+Is it possible to make a faster algorithm for part 2?
