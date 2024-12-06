@@ -24,3 +24,8 @@ The loop over neighbours of a particular position on the map.
 Verify if the order of numbers in an array meets the list of rules.
 In part 2, reorder the numbers according to the rules.
 Is it possible to make a faster algorithm for part 2?
+
+## 6: Guard Gallivant
+Make an agent walking through the map. Count the length of his path in Part 1
+and look if path does not result in the loop in Part 2.
+The most enjoyble/relaxed problem this year so far!
