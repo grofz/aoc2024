@@ -16,3 +16,7 @@ program main
   call day2405('inp/05/input.txt')
   100 continue
 end program main
+
+! Notes
+! Day 4
+! https://rcoh.me/posts/linear-time-median-finding/
