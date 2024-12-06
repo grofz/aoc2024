@@ -3,7 +3,7 @@ module day2406_mod
   implicit none
 
   type agent_t
-    integer :: pi, pj ! the position in the map
+    integer :: p(2)   ! the position in the map
     integer :: dr     ! the heading (1=north,2=east,3=south,4=west)
     logical, allocatable :: timespace(:,:,:)
       ! were we at this position at this heading already?
@@ -30,7 +30,7 @@ contains
     logical :: dejavu
 
     call this%put_at_start(map)
-    do while (this%pi/=0 .and. this%pj/=0)
+    do while (all(this%p /= 0))
       call this%onestep(map, dejavu)
       if (dejavu) then
         pathlen = IN_LOOP
@@ -47,11 +47,7 @@ contains
 !
 ! Put the agent at the position "^" in the map.
 !
-    integer :: pij(2)
-
-    pij = findloc(map,'^')
-    this%pi = pij(1)
-    this%pj = pij(2)
+    this%p  = findloc(map,'^')
     this%dr = 1
 
     ! make sure size of "timespace" is consistent with size of "map"
@@ -65,7 +61,7 @@ contains
     else
       this%timespace = .false.
     end if
-    this%timespace(pij(1),pij(2),1) = .true.
+    this%timespace(this%p(1), this%p(2), this%dr) = .true.
   end subroutine
 
 
@@ -76,33 +72,32 @@ contains
 !
 ! Make one step and update the log (timespace)
 !
-    integer :: fi, fj
+    integer :: f(2)
 
     rotate_loop: do
       ! tile ahead of the agent
-      fi = this%pi + dirs(1,this%dr)
-      fj = this%pj + dirs(2,this%dr)
+      f = this%p + dirs(:,this%dr)
 
-      if (fi < 1 .or. fj < 1 .or. fi > size(map,1) .or. fj > size(map,2)) then
+      if (f(1) < 1 .or. f(2) < 1 .or. f(1) > size(map,1) .or. f(2) > size(map,2)) then
         ! map edge ahead -> leaving map
-        this%pi = 0
-        this%pj = 0
+        this%p = 0
         return
       else
-        if (map(fi,fj)=='#') then
+        if (map(f(1),f(2))=='#') then
           ! obstacle ahead -> turn right and look ahead again
           this%dr = this%dr + 1
           if (this%dr > 4) this%dr = 1
         else
           ! path free to make step forward
-          this%pi = fi
-          this%pj = fj
-          exit rotate_loop
+          this%p = f
+          associate(ts => this%timespace(this%p(1),this%p(2),this%dr))
+            dejavu = ts
+            ts = .true.
+          end associate
+          return
         end if
       end if
     end do rotate_loop
-    dejavu = this%timespace(this%pi, this%pj, this%dr)
-    this%timespace(this%pi, this%pj, this%dr) = .true.
   end subroutine onestep
 
 
