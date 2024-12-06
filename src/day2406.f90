@@ -105,6 +105,7 @@ contains
     character(len=*), intent(in) :: file
 
     character(len=1), allocatable :: map(:,:)
+    logical, allocatable :: init_path(:,:)
     integer :: ans1, ans2, i, j, pathlen
     type(agent_t) :: agent
 
@@ -114,11 +115,19 @@ contains
     call agent%measure_path(map, ans1)
     print '("Ans 06/1 ",i0,l2)', ans1, ans1==4696
 
+    ! For part 2, remember the path taken, remove the initial
+    ! position from the path
+    init_path = any(agent%timespace,dim=3)
+    associate(p0=>findloc(map,'^'))
+      init_path(p0(1),p0(2)) = .false.
+    end associate
+
     ! Part 2
     ans2 = 0
     do i=1, size(map,1)
       do j=1, size(map,2)
-        if (map(i,j)/='.') cycle
+        if (.not. init_path(i,j)) cycle
+        if (map(i,j)/='.') error stop 'some thing wrong'
         map(i,j) = '#'
         call agent%measure_path(map, pathlen)
         if (pathlen==IN_LOOP) ans2 = ans2 + 1
