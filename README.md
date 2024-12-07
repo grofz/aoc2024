@@ -29,3 +29,9 @@ Is it possible to make a faster algorithm for part 2?
 Make an agent walking through the map. Count the length of his path in Part 1
 and look if path does not result in the loop in Part 2.
 The most enjoyble/relaxed problem this year so far!
+
+## 7: Bridge Repair
+Nice problem for DWS. First implemented usin loop iterator to test all
+combinations of operators (2^11 v. 3^11 in Parts 1 and 2).
+Optimized by pruning the branches that alredy overshoot the required value,
+run-time dropped from 142 s to 14 s.

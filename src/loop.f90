@@ -52,7 +52,7 @@ contains
   end function get_next_element
 
 
-  function has_next_element(this) result(has)
+  pure function has_next_element(this) result(has)
     class(loop_iterator_t), intent(in) :: this
     logical :: has
 
@@ -60,7 +60,7 @@ contains
   end function has_next_element
 
 
-  function new_iterator(lbounds, ubounds, strides) result(new)
+  pure function new_iterator(lbounds, ubounds, strides) result(new)
     integer, intent(in), dimension(:) :: lbounds, ubounds, strides
     type(loop_iterator_t) :: new
 
