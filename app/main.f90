@@ -8,7 +8,7 @@ program main
   use day2407_mod, only: day2407
   implicit none
 
-! goto 100
+  goto 100
 
   print '("Advent of Code 2024 (www.adventofcode.com)")'
   call day2401('inp/01/input.txt')
@@ -17,8 +17,10 @@ program main
   call day2404('inp/04/input.txt')
   call day2405('inp/05/input.txt')
   call day2406('inp/06/input.txt')
-  call day2407('inp/07/input.txt')
-! 100 continue
+  100 continue
+  call day2407('inp/07/input.txt', 1) ! un-optimized
+  call day2407('inp/07/input.txt', 2) ! optimization
+  call day2407('inp/07/input.txt', 3) ! better optimization
 end program main
 
 ! Notes
