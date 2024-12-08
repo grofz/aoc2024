@@ -2,102 +2,22 @@ module day2408_mod
   use parse_mod, only : read_pattern
   implicit none
 
-  integer, parameter :: MAX_SAME_ANTENNA=5, N_REPEATS = 80
+  integer, parameter :: MAX_SAME_AID=5
+  integer, parameter :: AID_MIN = iachar('0'), AID_MAX = iachar('z')
 
   type :: antennas_t 
     character(len=1), allocatable :: map(:,:)
-    integer, dimension(iachar('0'):iachar('z')) :: cnt
-    integer, dimension(2, MAX_SAME_ANTENNA, iachar('0'):iachar('z')) :: pos 
+    integer, dimension(AID_MIN:AID_MAX) :: cnt
+    integer, dimension(2, MAX_SAME_AID, AID_MIN:AID_MAX) :: pos
   end type
 
 contains
-
-  subroutine add_anodes(this, ans1, ans2)
-    class(antennas_t), intent(inout) :: this
-    integer, intent(out) :: ans1, ans2
-
-    integer :: i, j, k, z, a(2,2)
-    integer, allocatable :: a1(:,:), a2(:,:), a2s(:,:)
-    character(len=1), allocatable :: ano1(:,:), ano2(:,:)
-
-    allocate(ano2(size(this%map,1),size(this%map,2)), source='.')
-    allocate(ano1(size(this%map,1),size(this%map,2)), source='.')
-    ANT_LOOP: do i=lbound(this%cnt,1), ubound(this%cnt,1)
-      do j=1, this%cnt(i)-1
-      do k=j+1, this%cnt(i)
-          a = anod_pos(this%pos(:,j,i), this%pos(:,k,i))
-          do z=1,2
-            if (a(1,z)<1 .or. a(2,z)<1 .or. a(1,z)>size(this%map,1) .or. &
-                a(2,z)>size(this%map,2)) cycle
-            ano1(a(1,z),a(2,z)) = '#'
-          end do
-          a2 = ano_posmany(this%pos(:,j,i), this%pos(:,k,i), shape(this%map), .false.)
-          a2s = ano_posmany(this%pos(:,j,i), this%pos(:,k,i), shape(this%map), .true.)
-if (size(a2)/=size(a2s)) then
-! print *, this%pos(:,j,i), this%pos(:,k,i)
-! print '(a,*(i3))', 'IS    =', a2
-! print '(a,*(i3))', 'SHOLD =', a2s
-! print *
-  a2 = a2s
-end if
-          do z=lbound(a2,2),ubound(a2,2)
-!           if (a2(1,z)<1 .or. a2(2,z)<1 .or. a2(1,z)>size(this%map,1) .or. &
-!               a2(2,z)>size(this%map,2)) cycle
-            ano2(a2(1,z),a2(2,z)) = '#'
-          end do
-      end do
-      end do
-    end do ANT_LOOP
-    ans1 = count(ano1=='#')
-    ans2 = count(ano2=='#')
-  end subroutine add_anodes
-
-
-  function anod_pos(a, b) result(anods)
-    integer, intent(in) :: a(2), b(2)
-    integer :: anods(2,2)
-
-    integer :: d(2)
-
-    d = b-a
-    anods(:,1) = b + d
-    anods(:,2) = a - d
-  end function anod_pos
-
-  integer function get_mink(a, b) result(mink)
-    integer, intent(in) :: a(2), b(2)
-  end function
-
-  function ano_posmany(a, b, shap, safe) result (anods)
-    integer, intent(in) :: a(2), b(2), shap(2)
-    integer, allocatable :: anods(:,:)
-    logical, intent(in) :: safe
-
-    integer :: d(2), k, mink, maxk, n
-    integer, allocatable :: tmp(:,:)
-
-    d = b-a
-    mink = min( min(a(1),b(1))/abs(d(1))+1, min(a(2),b(2))/abs(d(2))+1)
-    maxk = max(minval((shap-b)/d+1), minval((shap-a)/d+1))
-    if (safe) mink = mink + N_REPEATS
-    maxk = maxk + N_REPEATS
-    allocate(tmp(2,mink+maxk+1))
-    n = 0
-    do k=-mink, maxk
-      associate(q=>a+d*k)
-        if (q(1)<1 .or. q(2)<1 .or. q(1)>shap(1) .or. q(2)>shap(2)) cycle
-        n = n+1
-        tmp(:,n) = q
-      end associate
-    end do
-    anods = tmp(:,1:n)
-  end function
 
   subroutine antennas_from_file(file, this)
     character(len=*), intent(in) :: file
     type(antennas_t), intent(out) :: this
 
-    integer :: i, j
+    integer :: i, j, aid
 
     this%map = read_pattern(file)
     this%cnt = 0
@@ -106,36 +26,118 @@ end if
       associate (iach=>iachar(this%map(i,j)))
         if (iach==iachar('.')) cycle
         if (iach<lbound(this%cnt,1) .or. iach>ubound(this%cnt,1)) &
-          & error stop 'character is not expected'
+          & error stop 'this character is not expected'
         this%cnt(iach) = this%cnt(iach) + 1
-        if (this%cnt(iach)>MAX_SAME_ANTENNA) &
-          & error stop 'more antennas than expected'
+        if (this%cnt(iach)>MAX_SAME_AID) &
+          & error stop 'more antennas of same type than expected'
         this%pos(1, this%cnt(iach), iach) = i
         this%pos(2, this%cnt(iach), iach) = j
       end associate
     end do
     end do
 
-    ! consistency check
-    do i=lbound(this%cnt,1), ubound(this%cnt,1)
-      if (this%cnt(i) /= count(this%map==achar(i))) &
-        & error stop 'something went wrong'
-     !if (this%cnt(i)>0) print *, achar(i), this%pos(:,1:this%cnt(i),i)
+    ! cross-checking the number of antennas of a particular id
+    do aid = lbound(this%cnt,1), ubound(this%cnt,1)
+      if (this%cnt(aid) /= count(this%map==achar(aid))) &
+        & error stop 'consistency check failed'
+!!    if (this%cnt(id)>0) print *, achar(aid), this%pos(:,1:this%cnt(aid),aid)
     end do
   end subroutine antennas_from_file
+
+
+  subroutine count_anodes(this, ans1, ans2)
+    class(antennas_t), intent(inout) :: this
+    integer, intent(out) :: ans1, ans2
+
+    integer :: aid, j, k, z
+    integer, allocatable :: p1(:,:), p2(:,:)
+    character(len=1), allocatable :: ano1(:,:), ano2(:,:)
+
+    ! anodes position will be drawn to maps "ano1" and "ano2"
+    allocate(ano2(size(this%map,1),size(this%map,2)), source='.')
+    allocate(ano1(size(this%map,1),size(this%map,2)), source='.')
+
+    do aid = lbound(this%cnt,1), ubound(this%cnt,1)
+      A_PAIR: do j=1, this%cnt(aid)-1
+      B_PAIR: do k=j+1, this%cnt(aid)
+          ! find anodes for the antennas pair "j"-"k"
+          associate(a=>this%pos(:,j,aid), b=>this%pos(:,k,aid))
+            p1 = get_anodes_pos(a, b, shape(this%map), .false.)
+            p2 = get_anodes_pos(a, b, shape(this%map), .true.)
+          end associate
+          ! mark anodes to the maps for Parts 1 and 2
+          do z=1,size(p1,2)
+            ano1(p1(1,z), p1(2,z)) = '#'
+          end do
+          do z = 1, size(p2,2)
+            ano2(p2(1,z), p2(2,z)) = '#'
+          end do
+      end do B_PAIR
+      end do A_PAIR
+    end do
+    ans1 = count(ano1=='#')
+    ans2 = count(ano2=='#')
+  end subroutine count_anodes
+
+
+  function get_anodes_pos(a, b, siz, is_part2) result (anods)
+    integer, intent(in) :: a(2), b(2)
+    integer, intent(in) :: siz(2)        ! map size
+    logical, intent(in) :: is_part2
+    integer, allocatable :: anods(:,:)
+!
+! find all nodes on the line "a"-"b" within the map borders
+!
+    integer :: d(2), mink(2), maxk(2), k, n
+
+    d = b-a ! vector from "a" to "b"
+    if (any(d==0)) error stop 'not expecting horizontal/vertical lines'
+    where (d>0)        ! "a" is bellow "b"
+      mink = (a-1)/d   ! number of copies from "a" to lower border
+      maxk = (siz-a)/d ! number of copies from "a" to upper border
+    else where             ! reversed if "a" is above "b"
+      mink = (siz-a)/(-d)  ! number of copies from "a" to upper border
+      maxk = (a-1)/(-d)    ! number of copies from "a" to lower border
+    end where
+
+    ! in order to stay inside the map,
+    ! we must use the minimum from "x" or "y" co-ordinates
+    associate(mn=>minval(mink), mx=>minval(maxk))
+      if (is_part2) then
+        allocate(anods(2, mn+mx+1))
+        do k = -mn, mx
+          anods(:, k+mn+1) = a + d*k
+        end do
+      else
+        ! max two anodes present for part 1
+        n = 0
+        if (mn>0) n = n+1 ! "k=-1"
+        if (mx>1) n = n+1 ! "k= 2"
+        allocate(anods(2, n))
+        if (mn>0) then
+          anods(:, 1) = a - d
+          n = 2
+        else
+          n = 1
+        end if
+        if (mx>1) then
+          anods(:, n) = a + 2*d
+        end if
+      end if
+    end associate
+  end function get_anodes_pos
+
 
   subroutine day2408(file)
     character(len=*), intent(in) :: file
 
-    integer :: ans1, ans2, i
+    integer :: ans1, ans2
     type(antennas_t) :: antennas
 
     call antennas_from_file(file, antennas)
-    call add_anodes(antennas, ans1, ans2)
-
+    call count_anodes(antennas, ans1, ans2)
     print '("Ans 08/1 ",i0,l2)', ans1, ans1==256
     print '("Ans 08/2 ",i0,l2)', ans2, ans2==1005
-
   end subroutine day2408
 
 end module day2408_mod

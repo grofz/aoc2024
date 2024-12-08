@@ -21,8 +21,8 @@ program main
  !call day2407('inp/07/input.txt', 1) ! un-optimized
  !call day2407('inp/07/input.txt', 2) ! optimization
   call day2407('inp/07/input.txt', 3) ! better optimization
-  100 continue
   call day2408('inp/08/input.txt')
+  100 continue
 end program main
 
 ! Notes
