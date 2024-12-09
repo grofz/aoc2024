@@ -35,3 +35,13 @@ Nice problem for DWS. First implemented usin loop iterator to test all
 combinations of operators (2^11 v. 3^11 in Parts 1 and 2).
 Optimized by pruning the branches that alredy overshoot the required value,
 run-time dropped from 142 s to 14 s.
+
+## 8: Resonant Collinearity
+In a 2D-map find (count) the number of points that are on the line between
+nodes with the same id. Loop over all nodes pair.
+Vector algebra, using "pp = aa + k*(bb-aa)". It took some work to set the
+range for "k" so that "pp" stays within the map.
+
+## 9: Disk Fragmenter
+Move blocks on the disc. Using doubly-linked list, but some cleaning could
+be done.
