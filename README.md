@@ -45,3 +45,7 @@ range for "k" so that "pp" stays within the map.
 ## 9: Disk Fragmenter
 Move blocks on the disc. Using doubly-linked list, but some cleaning could
 be done.
+
+## 10: Hoof It
+First path finding problem. Using simple recursion, eliminating duplicates
+in Part 1, but keeping all paths in Part 2.
