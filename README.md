@@ -49,3 +49,10 @@ be done.
 ## 10: Hoof It
 First path finding problem. Using simple recursion, eliminating duplicates
 in Part 1, but keeping all paths in Part 2.
+
+## 11: Plutonian Pebbles
+Implement rules to mutate the row of stones with numbers on them.
+They ask for the number of stones after certain number of steps.
+The number of stones grows exponentially, however, the number of *unique*
+stones is kept at low values (so we are able to make Part 2 by adding
+the counter of particular stones).
