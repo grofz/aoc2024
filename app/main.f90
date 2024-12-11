@@ -12,7 +12,7 @@ program main
   use day2411_mod, only: day2411
   implicit none
 
-  goto 100
+ !goto 100
 
   print '("Advent of Code 2024 (www.adventofcode.com)")'
   call day2401('inp/01/input.txt')
@@ -27,8 +27,8 @@ program main
   call day2408('inp/08/input.txt')
   call day2409('inp/09/input.txt')
   call day2410('inp/10/input.txt')
-  100 continue
   call day2411('inp/11/input.txt')
+  100 continue
 end program main
 
 ! Notes
