@@ -5,13 +5,13 @@ module day2412_mod
   type garden_t
     integer, allocatable :: id(:,:), ngbs(:,:)
     character(len=1), allocatable :: map(:,:)
-    integer, allocatable :: area(:), peri(:), sides(:)
+    integer, allocatable :: area(:), peri(:), side(:)
   end type
 
   type edgelist_t
     integer, allocatable :: a(:,:)
     integer :: n=0
-  end type 
+  end type
   integer, parameter :: EDGE_COMPONENTS = 5
 
 contains
@@ -25,16 +25,10 @@ contains
     garden%map = read_pattern(file)
     call label_connected(garden)
     call count_fences(garden)
-    ans1 = sum(garden%area*garden%peri)
-    ans2 = sum(garden%area*garden%sides)
-
- print *, 'Areas =', garden%area
- print *, 'Perim =', garden%peri
- print *, 'Sides =', garden%sides
-!print *, sum(this%area), size(this%map)
-
+    ans1 = sum(garden%area * garden%peri)
+    ans2 = sum(garden%area * garden%side)
     print '("Ans 12/1 ",i0,l2)', ans1, ans1==1533024
-    print '("Ans 12/2 ",i0,l2)', ans2, ans2==1         ! 903238 too low 821255
+    print '("Ans 12/2 ",i0,l2)', ans2, ans2==910066
 
   end subroutine day2412
 
@@ -55,7 +49,7 @@ contains
       call crawl(i, j, this, id, this%map(i,j))
     end do
     end do
-print *, 'Labeled components = ', id
+print '("Labeled components ",i0)', id
 
     if (allocated(this%area)) deallocate(this%area)
     allocate(this%area(id))
@@ -68,11 +62,12 @@ print *, 'Labeled components = ', id
   subroutine count_fences(this)
     type(garden_t), intent(inout) :: this
 
-    integer :: i, j, di, dj
+    integer :: i, j, di, dj, dj2, di2
     type(edgelist_t) :: edges
     integer :: edge(EDGE_COMPONENTS)
 
 
+    ! Helper array "ngbs" - to store the number of alien neighbours
     if (allocated(this%ngbs)) deallocate(this%ngbs)
     allocate(this%ngbs(size(this%map,1),size(this%map,2)), source=4)
     do i=1,size(this%ngbs,1)
@@ -82,75 +77,59 @@ print *, 'Labeled components = ', id
         if (abs(di)+abs(dj)/=1) cycle
 
         ! what the edge would look like?
+        dj2 = (dj-1)/2
+        di2 = (di-1)/2
         if (di==0) then
-          ! horizontal
           if (dj>0) then
-           !edge = [i, j+dj, i-1, j+dj, this%id(i,j)]
-            edge = [i-1, j+dj, i, j+dj, this%id(i,j)]
+            ! ngb at right - vector heading down
+            edge = [i-1, j+dj2, i, j+dj2, this%id(i,j)]
           else
-            edge = [i-1, j+dj, i, j+dj, this%id(i,j)]
+            ! ngb at left - vector heading up
+            edge = [i, j+dj2, i-1, j+dj2, this%id(i,j)]
           end if
         else
-          ! vertical
           if (di>0) then
-            edge = [i+di, j-1, i+di, j, this%id(i,j)]
+            ! ngb is below - vector heading left
+            edge = [i+di2, j, i+di2, j-1, this%id(i,j)]
           else
-           !edge = [i+di, j, i+di, j-1, this%id(i,j)]
-            edge = [i+di, j-1, i+di, j, this%id(i,j)]
+            ! ngb is above - vector heading right
+            edge = [i+di2, j-1, i+di2, j, this%id(i,j)]
           end if
         end if
 
         ! for each of four neighbours
         if (i+di<1 .or. j+dj<1 .or. i+di>size(this%ngbs,1) .or. &
             &                       j+dj>size(this%ngbs,2)) then
-          ! add edge
+          ! add edge if at the border of the map
           call add_edge(edges, edge)
-          cycle
-        end if
-        if (this%map(i+di,j+dj)==this%map(i,j)) then
-          this%ngbs(i,j) = this%ngbs(i,j)-1
+        else if (this%map(i+di,j+dj)/=this%map(i,j)) then
+          ! add edge if neighbour is alien
+          call add_edge(edges, edge)
         else
-          call add_edge(edges, edge)
+          ! reduce the number of fences if neighbour has the same id
+          this%ngbs(i,j) = this%ngbs(i,j)-1
         end if
       end do
       end do
     end do
     end do
+
+    if (allocated(this%peri)) deallocate(this%peri)
+    if (allocated(this%side)) deallocate(this%side)
+    allocate(this%peri(maxval(this%id)))
+    allocate(this%side(maxval(this%id)))
 
     do
       i = edges%n
-print *, 'reducing edges ',i
       call reduce_edges(edges)
       if (edges%n==i) exit
+      print '("Number of edges reduced from ",i0," to ",i0)',i,edges%n
     end do
 
-
-    if (allocated(this%peri)) deallocate(this%peri)
-    if (allocated(this%sides)) deallocate(this%sides)
-    allocate(this%peri(maxval(this%id)))
-    allocate(this%sides(maxval(this%id)))
     do i=1, size(this%peri)
-       this%peri(i) = sum(this%ngbs, mask=this%id==i)
-!     this%peri(i) = count(edges%a(5,1:edges%n)==i)
-      this%sides(i) = count(edges%a(5,1:edges%n)==i)
-      block
-        integer :: mi, mj
-        character(len=1) :: ch
-!       write(*,*) 'id =',i
-        do mi=1,size(this%map,1)
-          do mj=1,size(this%map,2)
-            if (this%id(mi,mj)==i) then
-              write(ch,'(i1)') this%ngbs(mi,mj)
-            else
-              ch='.'
-            end if
-!           write(*,'(a1,1x)',advance='no') ch
-          end do
-!         write(*,*)
-        end do
-      end block
+      this%peri(i) = sum(this%ngbs, mask=this%id==i)
+      this%side(i) = count(edges%a(5,1:edges%n)==i)
     end do
-print *, 'edges in total ', edges%n
   end subroutine count_fences
 
 
@@ -158,39 +137,25 @@ print *, 'edges in total ', edges%n
     type(edgelist_t), intent(inout) :: this
 
     integer :: i, j
-print *, 'start = ', this%n
 
-   !MAIN_LOOP: do i=1, this%n
-    MAIN_LOOP: do i=this%n,1 ,-1
-      do j=this%n,1, -1
-     !do j=1, this%n
+    MAIN_LOOP: do i=1, this%n
+      do j=1, this%n
+
+        ! ignore removed edges
+        if (this%a(5,i) == 0 .or. this%a(5,j) == 0) cycle
+
+        ! proceed only with edges belongig to the same component id
+        if (this%a(5,i) /= this%a(5,j)) cycle
+
+        ! both edges must be different
         if (i==j) cycle
 
-        if (this%a(5,i) /= this%a(5,j)) cycle
-        if (this%a(5,i) == 0) cycle
-        if (this%a(5,j) == 0) cycle
-
-        if (this%a(1,i)==this%a(3,i)) then
-          ! "i" is horizontal
-          if (this%a(1,j)==this%a(3,j)) then
-            continue
-          elseif (this%a(2,j)==this%a(4,j)) then
-            cycle
-          else
-            error stop 'can not be'
-          end if
-
-        elseif (this%a(2,i)==this%a(4,i)) then
-          ! "i" is vertical
-          if (this%a(1,j)==this%a(3,j)) then
-            cycle
-          elseif (this%a(2,j)==this%a(4,j)) then
-            continue
-          else
-            error stop 'can not be'
-          end if
+ ! TODO us dot product to test co-linearity
+        ! both edges must be verrtical/horizontal
+        if (.not. is_edge_vertical(this%a(:,i))) then
+          if (is_edge_vertical(this%a(:,j))) cycle
         else
-          error stop 'can not be'
+          if (.not. is_edge_vertical(this%a(:,j))) cycle
         end if
 
         ! now the edge should belong to the same id and same orientation
@@ -204,7 +169,7 @@ print *, 'start = ', this%n
       end do
     end do MAIN_LOOP
 
-    ! compact edge list
+    ! compact edge list by filling the gaps
     i = 1
     do
       if (i>this%n) exit
@@ -215,8 +180,19 @@ print *, 'start = ', this%n
         i = i + 1
       end if
     end do
-print *, 'end = ', this%n
   end subroutine reduce_edges
+
+
+  function is_edge_vertical(edge) result(yes)
+    integer, intent(in), dimension(EDGE_COMPONENTS) :: edge(:)
+    logical :: yes
+
+    associate(di => edge(3)-edge(1), dj => edge(4)-edge(2))
+      if ((di/=0 .and. dj/=0) .or. (di==0 .and. dj==0)) &
+          & error stop 'only vertical/horizontal edges are allowed'
+      yes = dj==0
+    end associate
+  end function
 
 
   recursive subroutine crawl(i, j, this, id, ch)

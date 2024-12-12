@@ -56,3 +56,12 @@ They ask for the number of stones after certain number of steps.
 The number of stones grows exponentially, however, the number of *unique*
 stones is kept at low values (so we are able to make Part 2 by adding
 the counter of particular stones).
+
+## 12: Garden Groups
+A nice topological problem. Part 1 - label connected components and calculate
+their area and circumfence. Part 2 - calculate the number of sides instead of
+the circumfence. My algorithm is to generate edges at all heterogeneous
+contacts and then reduce the number of edges by merging them if the tail of
+the first edge coincides with the head of the second one. The orientation
+of edges is very important to avoid merging edges that would cross-each
+other - see the last sample input.
