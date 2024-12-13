@@ -1,5 +1,5 @@
 module day2413_mod
-  use iso_fortran_env, only : i8 => int64, dp => real64
+  use iso_fortran_env, only : i8 => int64
   use parse_mod, only : string_t, read_strings
   implicit none
 
@@ -95,9 +95,9 @@ contains
 
   subroutine solve_by_algebra(this)
     class(machine_t), intent(inout) :: this
- 
-    real(dp) :: a(2,2), b(2), x(2), ainv(2,2), adet
-     
+
+    integer(i8) :: ainv(2,2), adet
+
     ! Solving set of linear equations
     !
     !   | px |     | ax bx |   | na |
@@ -106,27 +106,23 @@ contains
     !
     ! for an unknown vector [na, nb]
     !
-    a = real(this%ab, dp)
-    b = real(this%p, dp)
-    adet = a(1,1)*a(2,2) - a(1,2)*a(2,1)
-    if (abs(adet)<10*spacing(0.0_dp)) error stop 'singular matrix'
-    ainv(1,1) = a(2,2)
-    ainv(2,2) = a(1,1)
-    ainv(1,2) = -a(1,2)
-    ainv(2,1) = -a(2,1)
-    ainv = ainv/adet
-    b = matmul(ainv, b)
+    associate(a=>this%ab)
+      adet = a(1,1)*a(2,2) - a(1,2)*a(2,1)
+      ainv(1,1) = a(2,2)
+      ainv(2,2) = a(1,1)
+      ainv(1,2) = -a(1,2)
+      ainv(2,1) = -a(2,1)
+      if (adet==0) error stop 'we do not expect singular matrix'
+      this%n = matmul(ainv, this%p)
+    end associate
 
-    ! Convert solution to nearest integer and check if equation
-    ! still holds. Invalidate if not.
-    this%n = nint(b,i8)
-    if (.not. all(matmul(this%ab, this%n)==this%p)) this%n = -1
-
-    ! Calculate the cost
-    if (any(this%n==-1)) then
-      this%cost_to_win = 0
-    else
+    ! Only inyeger solution can be accepted
+    if (all(mod(this%n, adet)==0)) then
+      this%n = this%n / adet
       this%cost_to_win = dot_product(COSTS, this%n)
+    else
+      this%n = -1
+      this%cost_to_win = 0
     end if
   end subroutine solve_by_algebra
 
