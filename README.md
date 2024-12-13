@@ -65,3 +65,6 @@ contacts and then reduce the number of edges by merging them if the tail of
 the first edge coincides with the head of the second one. The orientation
 of edges is very important to avoid merging edges that would cross-each
 other - see the last sample input.
+
+## 13: Claw Contraption
+Using linear algebra - solving a set of two linear equations
