@@ -12,6 +12,7 @@ program main
   use day2411_mod, only: day2411
   use day2412_mod, only: day2412
   use day2413_mod, only: day2413
+  use day2414_mod, only: day2414
   implicit none
 
  !goto 100
@@ -32,6 +33,7 @@ program main
   call day2411('inp/11/input.txt')
   call day2412('inp/12/input.txt')
   call day2413('inp/13/input.txt')
+  call day2414('inp/14/input.txt')
   100 continue
 end program main
 
