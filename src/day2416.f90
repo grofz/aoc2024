@@ -2,27 +2,29 @@ module day2416_mod
   use parse_mod, only : read_pattern
   implicit none
 
-  ! east, south, west, north
+  ! directions vector: east, south, west, north
   integer, parameter, dimension(2,4) :: HEADINGS = reshape( &
     & [0, 1, 1, 0, 0, -1, -1, 0], [2,4])
-  ! cost to change direction(old_heading, new_heading)
+
+  ! cost to change direction - (old_heading, new_heading)
   integer, parameter, dimension(4,4) :: TURN_MAT = reshape( &
     & [0, 1, 2, 1,   1, 0, 1, 2,   2, 1, 0, 1,   1, 2, 1, 0], [4,4])
 
   integer, parameter :: MAX_EDGES = 4, COST_TURN = 1000, COST_MOVE = 1 
 
   type edge_t
-    integer :: beg(3), fin(3), cost
+    integer :: beg(3), fin(3), cost ! start node, end node, cost to cross
   end type edge_t
 
-  integer, parameter :: mold_int = huge(mold_int)
+  integer, parameter :: MOLD_INT = huge(mold_int)
 
   type node_t
     type(edge_t) :: elist(MAX_EDGES)
+    integer :: ne=0 ! number of edges in "elist"
     character(len=1) :: typ
-    integer :: ne=0
-    logical :: visited = .false.
-    integer :: val = huge(mold_int)
+    logical :: visited = .false., best_path = .false.
+    integer :: val = huge(MOLD_INT) ! distance from start
+    type(edge_t), allocatable :: plist(:) ! list of preceding states
   end type
 
   type labyrinth_t
@@ -39,14 +41,36 @@ contains
     character(len=*), intent(in) :: file
 
     type(labyrinth_t) :: lab
-    integer :: ans1
+    integer :: ans1, ans2
 
     lab = labyrinth_from_file(file)
     call djikstra(lab)
     ans1 = minval(lab%nods(lab%finish(1),lab%finish(2),:)%val)
+    lab%finish(3) = minloc(lab%nods(lab%finish(1),lab%finish(2),:)%val, 1)
+    call backtrack(lab, lab%finish)
+    ans2 = count(any(lab%nods%best_path, dim=3))
 
     print '("Ans 16/1 ",i0,l2)', ans1, ans1==66404
+    print '("Ans 16/2 ",i0,l2)', ans2, ans2==433
   end subroutine day2416
+
+
+  recursive subroutine backtrack(this, s)
+    type(labyrinth_t), intent(inout) :: this
+    integer, intent(in) :: s(3)
+
+    integer :: i
+    associate(nod=>this%nods(s(1),s(2),s(3)))
+      if (.not. nod%best_path) nod%best_path = .true.
+      if (allocated(nod%plist)) then
+        do i=1, size(nod%plist)
+          associate(e=>nod%plist(i)%beg)
+            call backtrack(this, e)
+          end associate
+        end do
+      end if
+    end associate
+  end subroutine backtrack
 
 
   function labyrinth_from_file(file) result(new)
@@ -67,10 +91,10 @@ contains
       integer :: n1, n2
       n1 = count(new%map=='#')
       n2 = count(new%map=='.')
-      print '("There are ",i0," walls and ",i0," spaces. Check is ",l2)', &
-          n1, n2, n1+n2 == size(new%map)
-      print '("Start:  ",3(i0,1x))', new%start
-      print '("Finish: ",3(i0,1x))', new%finish
+     !print '("There are ",i0," walls and ",i0," spaces. Check is ",l2)', &
+     !    n1, n2, n1+n2 == size(new%map)
+     !print '("Start:  ",3(i0,1x))', new%start
+     !print '("Finish: ",3(i0,1x))', new%finish
     end block
 
     ! start building the graph
@@ -105,8 +129,8 @@ contains
       end do
       end do
     end block
-print *, 'total edges ', sum(new%nods%ne)
-print *, 'total nodes ', count(new%nods%ne>0)
+!print *, 'total edges ', sum(new%nods%ne)
+!print *, 'total nodes ', count(new%nods%ne>0)
   end function labyrinth_from_file
 
 
@@ -114,7 +138,6 @@ print *, 'total nodes ', count(new%nods%ne>0)
     type(labyrinth_t), intent(inout) :: this
 
     integer :: cur_s(3), i
-
 
     ! prepare algorithm
     this%nods%val = huge(this%nods%val)
@@ -133,20 +156,24 @@ print *, 'total nodes ', count(new%nods%ne>0)
         NGB_LOOP: do i=1, cn%ne
           associate(e=>cn%elist(i))
             if (any(e%beg /= cur_s)) error stop 'wrong edge'
-            associate(en => this%nods(e%fin(1),e%fin(2),e%fin(3)))
-              if (en%visited) cycle
-              if (en%val==huge(mold_int)) then
-                ! new node found, add it to queue
-                en%val = cn%val + e%cost
-                call add_to_queue(this, e%fin)
-              else if (en%val > cn%val + e%cost) then
-                ! shorter route found, must still be in queue
-                en%val = cn%val + e%cost
-              else
-                ! found longer route, do nothing
-                continue
-              end if
-            end associate
+            if (this%nods(e%fin(1),e%fin(2),e%fin(3))%visited) cycle
+            if (this%nods(e%fin(1),e%fin(2),e%fin(3))%val==huge(mold_int)) then
+              ! new node found, add it to queue
+              this%nods(e%fin(1),e%fin(2),e%fin(3))%val = cn%val + e%cost
+              this%nods(e%fin(1),e%fin(2),e%fin(3))%plist = [e]
+              call add_to_queue(this, e%fin)
+            else if (this%nods(e%fin(1),e%fin(2),e%fin(3))%val > cn%val + e%cost) then
+              ! shorter route found, must still be in queue
+              this%nods(e%fin(1),e%fin(2),e%fin(3))%val = cn%val + e%cost
+              this%nods(e%fin(1),e%fin(2),e%fin(3))%plist = [e]
+            else if (this%nods(e%fin(1),e%fin(2),e%fin(3))%val == cn%val + e%cost) then
+              ! same length route found, just add previous node
+              this%nods(e%fin(1),e%fin(2),e%fin(3))%plist = &
+              & [e, this%nods(e%fin(1),e%fin(2),e%fin(3))%plist]
+            else
+              ! found longer route, do nothing
+              continue
+            end if
           end associate
         end do NGB_LOOP
 
@@ -155,7 +182,7 @@ print *, 'total nodes ', count(new%nods%ne>0)
 
         ! check if it is end
         if (cur_s(1)==this%finish(1) .and. cur_s(2)==this%finish(2)) then
-print *, 'something found =', cur_s, cn%val
+          ! works ok, and we must reach finish from all possible directions
         end if
       end associate
 
@@ -171,7 +198,6 @@ print *, 'something found =', cur_s, cn%val
     ! see, if edge is there
     ! TODO
 
-    ! see, if space remains
     associate(this=>nods(s(1),s(2),s(3)))
       if (this%ne==MAX_EDGES) error stop 'add edge - can not add more edges'
       this%ne = this%ne + 1
@@ -238,7 +264,5 @@ print *, 'already in queue'
     this%queue(:,k) = this%queue(:,this%nq)
     this%nq = this%nq - 1
   end subroutine top_from_queue
-
-
 
 end module day2416_mod
