@@ -11,6 +11,7 @@ module day2417_mod
     integer,  allocatable :: program(:)
     integer :: ip = 0
     character(len=MAX_BUFFER) :: buffer=''
+    integer(i8), allocatable :: output(:)
   contains
     procedure :: print => computer_state
     procedure :: onestep => process_instruction
@@ -56,6 +57,7 @@ contains
       read(program(i)%str,*) this%program(i-1)
     end do
     this%ip = 0
+    allocate(this%output(0))
   end function computer_fromfile
 
 
@@ -66,6 +68,9 @@ contains
 
     write(*,*)
     print '("Regs:    ",3(i0,1x))', this%reg
+ print '(a)', trim(view_binary(this%reg(REG_A),'A'))
+ print '(a)', trim(view_binary(this%reg(REG_B),'B'))
+ print '(a)', trim(view_binary(this%reg(REG_C),'C'))
     write(*,'("Program: ")',advance='no')
     do i=0, this%ip-1
       write(*,'(*(i0,1x))',advance='no') this%program(i)
@@ -90,7 +95,7 @@ contains
       op = this%reg(combo-4)
     else if (combo == 7) then
       error stop 'this combo not yet implemented'
-    else 
+    else
       error stop 'combo out of range'
     end if
   end function operand
@@ -134,6 +139,9 @@ contains
       ! write (OP mod 8)
       write(this%buffer(len_trim(this%buffer)+1:),'(i0)') &
           & modulo(operand(this,this%program(this%ip+1)), 8)
+      ! add to an array
+      this%output = [this%output, &
+          & int(modulo(operand(this,this%program(this%ip+1)), 8), i8) ]
     case(OP_BDV)
       this%reg(REG_B) = &
           this%reg(REG_A) / (2**operand(this, this%program(this%ip+1)))
@@ -149,24 +157,139 @@ contains
   end subroutine
 
 
+  function view_binary(num, reg) result(str)
+    integer(i8), intent(in) :: num
+    character(len=1), intent(in) :: reg
+    character(len=87) :: str
+
+    integer :: i
+
+    str = ''
+    str(1:1) = reg
+    do i=0, bit_size(num)-1
+      if (btest(num,i)) then
+        str(3+i:3+i) = '1'
+      else
+        str(3+i:3+i) = '0'
+      end if
+    end do
+    write(str(bit_size(num)+3+1:), '("(",i0,")")') num
+  end function view_binary
+
+
+  function simulate(zx, regA, output)
+    type(computer_t), intent(in) :: zx
+    integer(i8), intent(in) :: regA
+    character(len=:), allocatable :: simulate
+    integer(i8), intent(out), allocatable, optional :: output(:)
+
+    type(computer_t) :: zx0
+    logical :: halt
+
+    zx0 = zx
+    zx0%reg(REG_A) = regA
+    do
+      call zx0%onestep(halt)
+      if (halt) exit
+    end do
+    simulate = zx0%buffer
+    if (present(output)) output = zx0%output
+  end function
+
+
+  subroutine searchlast(zx, goal, pool, good)
+    type(computer_t) ,intent(in) :: zx
+    integer(i8), intent(in) :: goal(:)
+    integer(i8), intent(in) :: pool(:)
+    integer(i8), allocatable, intent(out) :: good(:)
+
+    ! to bootstrap - put just [0] to pool
+
+    integer(i8), allocatable :: wrk(:), output(:), regA
+    integer :: ngood, i, k, maxk
+    character(len=:), allocatable :: buffer
+
+    ngood = 0
+    if (size(pool)==1 .and. pool(1)==0) then
+      maxk = 2**10-1
+    else
+      maxk = 2**3-1
+    end if
+    do i=1, size(pool)
+      do k=0, maxk
+        ! shift by three bits to the right and test all bits
+        ! before
+        regA = pool(i)*int(8,i8) + int(k,i8)
+
+        buffer=simulate(zx, regA, output)
+        if (size(output)>=size(goal)) then
+          if (.not. all(goal==output(size(output)-size(goal)+1:))) cycle
+          call safe_add(regA)
+        end if
+      end do
+    end do
+
+    ! export good values
+    good = wrk(1:ngood)
+    print '("From pool of ",i0," good values remain ",i0)', size(pool), size(good)
+
+  contains
+    subroutine safe_add(ii)
+      integer(i8), intent(in) :: ii
+
+      integer(i8), allocatable :: tmp(:)
+
+      if (.not. allocated(wrk)) then
+        allocate(wrk(8))
+        ngood = 0
+      end if
+      if (ngood==size(wrk)) then
+        allocate(tmp(2*ngood))
+        tmp(1:ngood) = wrk
+        call move_alloc(tmp,wrk)
+      end if
+      ngood = ngood + 1
+      wrk(ngood) = ii
+    end subroutine
+  end subroutine searchlast
+
+
   subroutine day2417(file)
     character(len=*), intent(in) :: file
 
-    integer :: ans2
-    type(computer_t) :: zx
+    integer(i8) :: ans2, i, j
+    integer(i8), allocatable :: good(:), good0(:), output(:)
+    character(len=:), allocatable :: buffer
+    type(computer_t) :: zx, zx2
     logical :: halt
 
     zx = computer_fromfile(file)
     do
-      call zx%print()
+!     call zx%print()
       call zx%onestep(halt)
       if (halt) exit
     end do
-    call zx%print()
-    print *
 
-    print '("Ans 17/1 ",a,l2)', trim(zx%buffer)//' ',trim(zx%buffer)=='2,1,4,0,7,4,0,2,3' 
-    print '("Ans 17/2 ",i0,l2)', ans2
+    zx2 = zx
+    zx = computer_fromfile(file)
+    good0 = [0_i8]
+    do i=1, size(zx%program)
+      call searchlast(zx, int(zx%program(size(zx%program)-i:size(zx%program)-1), i8), good0, good)
+      good0 = good
+    end do
+
+    ans2 = huge(ans2)
+    do i=1,size(good)
+      buffer = simulate(zx, good(i), output)
+      if (size(output)==size(zx%program)) then
+        if (all(output==zx%program) .and. ans2>good(i)) then
+          ans2 = good(i)
+        end if
+      end if
+    end do
+
+    print '("Ans 17/1 ",a,l2)', trim(zx2%buffer)//' ',trim(zx2%buffer)=='2,1,4,0,7,4,0,2,3' 
+    print '("Ans 17/2 ",i0,l2)', ans2, ans2==258394985014171_i8
   end subroutine day2417
 
 end module day2417_mod
