@@ -160,7 +160,7 @@ contains
     i = 1024
     do
       call djikstra(lab, i, lim_time)
-print '("time: ",i0,3x, "shortest path: ",i0)', i, lab%dist(LABYRINTH_SIZE,LABYRINTH_SIZE)
+!!print '("time: ",i0,3x, "shortest path: ",i0)', i, lab%dist(LABYRINTH_SIZE,LABYRINTH_SIZE)
       if (lab%dist(LABYRINTH_SIZE,LABYRINTH_SIZE) /= huge(lab%dist)) then
         i = lim_time
         cycle

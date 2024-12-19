@@ -68,3 +68,37 @@ other - see the last sample input.
 
 ## 13: Claw Contraption
 Using linear algebra - solving a set of two linear equations
+
+## 14: Restroom Redoubt
+Simulate movement of robots in Part 1. Part 2 required to find a christmass
+tree pattern. A vague description - could not solve first. The most universal
+solution is to calculate the entropy - the sum of square distance among the
+robots and find when this entropy drops to an minimum.
+
+## 15: Warehouse Woes
+Simulate moving the boxes in a warehouse. Very nice task. And an example of
+an OOP.
+
+## 16: Reindeer Maze
+First Djikstra of the year. The trick is to use space (x,y,heading). There is a
+cost for moving forward and also cost for rotating. Find the least costly path
+from start to finish
+
+## 17: Chronospatial Computer
+Write an interpreter of a simple program in Part 1. Reverse engineer the code.
+Remember what these operations do:
+- dividing a number by 2**i (it shifts bits)
+- modulo
+- and XOR operation.
+Try to find the starting number to be set to registers that program produces
+a specific output.
+
+## 18: RAM Run
+Map where each second a new tile (#) appears. Find the shortest path. 
+Used a simple Djikstra to solve.
+
+## 19: Linen Layout
+Find the number of ways a long pattern can be covered by shorter patterns from 
+a list. Using a simple recursion works for Part 1 but the number grows
+exponentially in Part 2. Storing the result to avoid repeated calculations.
+Similar idea as optimizing Levensheim distance for example.

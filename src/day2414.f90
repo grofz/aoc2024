@@ -1,5 +1,6 @@
 module day2414_mod
   use parse_mod, only : string_t, read_strings, split
+  use iso_fortran_env, only : i8 => real64
   implicit none
 
   type robot_t
@@ -21,6 +22,7 @@ contains
     type(robot_t), allocatable :: robots(:)
 
     integer :: i, nquad(4), ans1, ans2
+    integer(i8) :: emin = huge(emin)
     logical :: tree_found, to_draw
 
     lines = read_strings(file)
@@ -32,14 +34,21 @@ contains
     to_draw = .false.
     ans2 = -1
     ans1 = -1
-    do i=1, 10000
+    do i=1, product(MAP_SIZE)
       call robot_move(robots)
 !to_draw = i>6000 .and. i<7000
       if (to_draw) print *, i
       call plot_positions(robots, nquad, to_draw, tree_found)
       if (tree_found .and. ans2==-1) ans2 = i
       if (i==100) ans1 = product(nquad)
-      if (ans1>0 .and. ans2>0) exit
+!     if (ans1>0 .and. ans2>0) exit
+associate(e=>entropy(robots))
+  if (e<=emin) then
+    emin = e
+call plot_positions(robots, nquad, .true., tree_found)
+    print *, i, emin
+  end if
+end associate
     end do
     print '("Ans 14/1 ",i0,l2)', ans1, ans1==228457125
     print '("Ans 14/2 ",i0,l2)', ans2, ans2==6493
@@ -135,5 +144,21 @@ contains
     this%p(1) = modulo(this%p(1) + this%v(1), MAP_SIZE(1))
     this%p(2) = modulo(this%p(2) + this%v(2), MAP_SIZE(2))
   end subroutine robot_move
+
+
+  function entropy(robots) result(e)
+    type(robot_t), intent(in) :: robots(:)
+    integer(i8) :: e
+
+    integer :: i, j
+
+    e = 0
+    do i=1, size(robots)-1
+      do j=i+1, size(robots)
+        e = e + sum(abs(robots(i)%p-robots(j)%p)**2)
+      end do
+    end do
+
+  end function entropy
 
 end module day2414_mod
