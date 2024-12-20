@@ -4,7 +4,6 @@ module day2420_mod
 
   integer, parameter, dimension(2,4) :: DIRS = reshape( &
       & [0, 1, 1, 0, 0, -1, -1, 0], [2,4])
-
   integer, parameter :: NSTAT = 2
 
   type labyrinth_t
@@ -19,48 +18,45 @@ contains
 
   subroutine djikstra(this)
     type(labyrinth_t), intent(inout) :: this
-
+!
+! To each '.' tile assign its distance from the starting tile
+!
     integer :: s(NSTAT), j, nxy(2)
 
     ! initialize djikstra
     this%nq = 0
     this%visited = .false.
     this%dis = huge(this%dis)
-!this%prev = 0
     this%dis(this%spos(1), this%spos(2)) = 0
     call add_to_queue(this, [this%spos(1), this%spos(2)])
 
     MAIN_LOOP: do
       if (this%nq==0) exit ! queue is empty
+
       call top_from_queue(this, s)
- !print *, 'visiting node ',s
       this%visited(s(1),s(2)) = .true.
 
       do j=1, size(DIRS,2)
         nxy = s(1:2)+DIRS(:,j)
-        if (this%map(nxy(1),nxy(2))/='.') cycle
 
+        ! look at the neighboring unvisited '.' tile
+        if (this%map(nxy(1),nxy(2))/='.') cycle
         if (this%visited(nxy(1), nxy(2))) cycle
 
-        if (this%dis(nxy(1),nxy(2)) == huge(this%dis)) then
-          ! new node
-          call add_to_queue(this, [nxy(1), nxy(2)])
-          this%dis(nxy(1),nxy(2)) = this%dis(s(1),s(2))+1
-!         this%prev(:,nxy(1),nxy(2)) = s
-        else if (this%dis(nxy(1),nxy(2)) > this%dis(s(1),s(2))+1) then
-          ! update distance
-          this%dis(nxy(1),nxy(2)) = this%dis(s(1),s(2))+1
-!         this%prev(:,nxy(1),nxy(2)) = s
-        else
-          ! do nothing
-        end if
+        associate(newdis=>this%dis(s(1),s(2))+1)
+          if (this%dis(nxy(1),nxy(2)) == huge(this%dis)) then
+            ! new node
+            call add_to_queue(this, [nxy(1), nxy(2)])
+            this%dis(nxy(1),nxy(2)) = newdis
+          else if (this%dis(nxy(1),nxy(2)) > newdis) then
+            ! old node, update distance
+            this%dis(nxy(1),nxy(2)) = newdis
+          end if
+        end associate
       end do
 
       ! exit found
-      if (all(s==this%epos)) then
-        print *, 'Exit found'
-        exit MAIN_LOOP
-      end if
+      if (all(s==this%epos)) exit MAIN_LOOP
     end do MAIN_LOOP
 
     ! Verify that the distances are uniques
@@ -70,42 +66,40 @@ contains
       end if
     end do
 
-print *, 'unpossible paths: ', count(this%map=='.' .and. this%dis==huge(this%dis))
-print *, 'maximum path: ', maxval(this%dis, mask=this%dis<huge(this%dis))
   end subroutine djikstra
 
 
-  subroutine explore_cheats(this, ans)
+  subroutine explore_cheats(this, ch_time, ans)
     type(labyrinth_t), intent(in) :: this
+    integer, intent(in) :: ch_time
     integer, intent(out) :: ans
 
-    integer :: i, j
+    integer :: i, j, ii, jj
 
     ans = 0
+    ! for all '.' tiles
     do i=2,size(this%map,1)-1
     do j=2,size(this%map,2)-1
-      if (this%map(i,j)/='#') cycle
-      ! check vertical cheat
-      if (this%map(i-1,j)=='.' .and. this%map(i+1,j)=='.') then
-        associate(saved=>abs(this%dis(i-1,j)-this%dis(i+1,j))-2)
-          print *, 'cheat saving ', saved
-          if (saved >= 100) then
-            ans = ans+1
-          end if
+      if (this%map(i,j)/='.') cycle
+      ! now explore all '.' tiles with Manhattan distance up to ch_time
+      do ii = -ch_time, ch_time
+      do jj = -ch_time, ch_time
+        if (abs(ii)+abs(jj) > ch_time) cycle
+        if (ii==0 .and. jj==0) cycle
+        if (i+ii < 1 .or. j+jj < 1 .or. i+ii>size(this%map,1) .or. j+jj>size(this%map,2)) cycle
+        if (this%map(i+ii,j+jj)/='.') cycle
+
+        associate(saved=>this%dis(i+ii,j+jj)-this%dis(i,j)-abs(ii)-abs(jj))
+          !print *, 'cheat saving ', saved
+          if (saved >= 100) ans = ans+1
         end associate
-      end if
-      ! check horizontal cheat
-      if (this%map(i,j-1)=='.' .and. this%map(i,j+1)=='.') then
-        associate(saved=>abs(this%dis(i,j-1)-this%dis(i,j+1))-2)
-          print *, 'cheat saving ', saved
-          if (saved>=100) then
-            ans = ans+1
-          end if
-        end associate
-      end if
+
+      end do
+      end do
+
     end do
     end do
-  end subroutine
+  end subroutine explore_cheats
 
 
   subroutine add_to_queue(this, s)
@@ -175,20 +169,16 @@ print *, 'maximum path: ', maxval(this%dis, mask=this%dis<huge(this%dis))
     this%spos = findloc(this%map,'S')
     this%map(this%spos(1),this%spos(2)) = '.'
     this%map(this%epos(1),this%epos(2)) = '.'
-print '("End position:   ",i3,1x,i3)', this%epos
-print '("Start position: ",i3,1x,i3)', this%spos
-print *, shape(this%map), count(this%map=='.')
 
     allocate(this%dis(size(this%map,1),size(this%map,2)))
     allocate(this%visited(size(this%map,1),size(this%map,2)))
-
   end subroutine labyrinth_readmap
 
 
   subroutine print_map(this)
     class(labyrinth_t), intent(in) :: this
 
-    integer :: i, j
+    integer :: i
 
     do i=1, size(this%map,1)
       write(*,'(*(a))') this%map(i,:)
@@ -200,13 +190,16 @@ print *, shape(this%map), count(this%map=='.')
     character(len=*), intent(in) :: file
 
     type(labyrinth_t) :: lab
-    integer :: ans1
+    integer :: ans1, ans2
 
     call labyrinth_readmap(file, lab)
-    call print_map(lab)
+!!  call print_map(lab)
     call djikstra(lab)
-    call explore_cheats(lab, ans1)
+    call explore_cheats(lab, 2, ans1)
+    call explore_cheats(lab, 20, ans2)
 
     print '("Ans 20/1 ",i0,l2)', ans1, ans1==1360
+    print '("Ans 20/2 ",i0,l2)', ans2, ans2==1005476
   end subroutine day2420
+
 end module day2420_mod

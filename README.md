@@ -102,3 +102,10 @@ Find the number of ways a long pattern can be covered by shorter patterns from
 a list. Using a simple recursion works for Part 1 but the number grows
 exponentially in Part 2. Storing the result to avoid repeated calculations.
 Similar idea as optimizing Levensheim distance for example.
+
+## Race Condition
+A single path labyrinth. Find the number of "cheats" that allow to ignore
+labyrinth walls. Using Djikstra to assign the distance from the start to
+each '.' tile. Then for each '.' tile exploring all other '.' tiles with
+Manhattan distance less than 2 (or 20) to see if what type of shortcut is
+possible. Nice problem.
