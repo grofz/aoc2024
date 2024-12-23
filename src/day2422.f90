@@ -222,7 +222,6 @@ contains
 
     print '("Ans 22/1 ",i0,l2)', ans1, ans1==14476723788_I8
     print '("Ans 22/2 ",i0,l2)', ans2, ans2==1630
-
   end subroutine day2422
 
 

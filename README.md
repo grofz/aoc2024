@@ -116,3 +116,6 @@ possible. Nice problem.
 Simulate pseudo-random number generator to obtain the sequence of 2000 values.
 In part 2, store the differences in a tree (hight 4, 19 childrens), then
 traverse the tree to find the sequence that gives the best sum of values.
+
+## 23
+Kerber-Brosh algorithm to find "cliques"
