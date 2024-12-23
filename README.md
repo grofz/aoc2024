@@ -103,9 +103,16 @@ a list. Using a simple recursion works for Part 1 but the number grows
 exponentially in Part 2. Storing the result to avoid repeated calculations.
 Similar idea as optimizing Levensheim distance for example.
 
-## Race Condition
+## 20: Race Condition
 A single path labyrinth. Find the number of "cheats" that allow to ignore
 labyrinth walls. Using Djikstra to assign the distance from the start to
 each '.' tile. Then for each '.' tile exploring all other '.' tiles with
 Manhattan distance less than 2 (or 20) to see if what type of shortcut is
 possible. Nice problem.
+
+## 21:
+
+## 22: Monkey Market
+Simulate pseudo-random number generator to obtain the sequence of 2000 values.
+In part 2, store the differences in a tree (hight 4, 19 childrens), then
+traverse the tree to find the sequence that gives the best sum of values.

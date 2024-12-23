@@ -20,7 +20,7 @@ program main
   use day2418_mod, only: day2418
   use day2419_mod, only: day2419
   use day2420_mod, only: day2420
-! use day2421_mod, only: day2421
+  use day2421_mod, only: day2421
   use day2422_mod, only: day2422
 ! use day2423_mod, only: day2423
 ! use day2424_mod, only: day2424
@@ -52,9 +52,9 @@ program main
   call day2418('inp/18/input.txt')
   call day2419('inp/19/input.txt')
   call day2420('inp/20/input.txt')
+  call day2421('inp/21/input.txt')
   100 continue
- !call day2422('inp/22/input.txt')
-  call day2422('inp/22/sample.txt')
+  call day2422('inp/22/input.txt')
 end program main
 
 ! Notes
