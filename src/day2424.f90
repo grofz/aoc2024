@@ -24,12 +24,13 @@ contains
     type(wire_t), intent(inout) :: wires(:)
 
     logical :: defined(size(gates))
-    integer :: i
+    integer :: i, ipass
     logical :: xa, xb, xc
 
     defined = .false.
+    ipass = 0
     MAIN: do 
-print *, 'unevaluated gates = ', count(.not. defined)
+      ipass = ipass + 1
       if (all(defined)) exit MAIN
       do i=1, size(gates)
         ! skip if already evaluated
@@ -61,16 +62,16 @@ print *, 'unevaluated gates = ', count(.not. defined)
         end if
         defined(i) = .true.
       end do
-
     end do MAIN
   end subroutine evaluate_gates
 
 
-  subroutine connect_gate(str, gate, wires, nw)
+  subroutine connect_gate(str, gate, wires, nw, fid)
     character(len=*), intent(in) :: str
     type(gate_t), intent(out) :: gate
     type(wire_t), allocatable, intent(inout) :: wires(:)
     integer, intent(inout) :: nw
+    integer, intent(in) :: fid
 
     type(string_t), allocatable :: toks(:)
     integer :: wid
@@ -95,7 +96,37 @@ print *, 'unevaluated gates = ', count(.not. defined)
     gate%wb = wid
     call add_wire(wires, nw, toks(5)%str, wid)
     gate%wc = wid
+
+    ! Write a line for grpahviz
+    write(fid,*) toks(1)%str//' -> "'//toks(1)%str//toks(2)%str//toks(3)%str//'"'
+    write(fid,*) toks(3)%str//' -> "'//toks(1)%str//toks(2)%str//toks(3)%str//'"'
+    write(fid,*) '"'//toks(1)%str//toks(2)%str//toks(3)%str//'" -> '//toks(5)%str
+
   end subroutine connect_gate
+
+
+  subroutine swap_outputs(lab1, lab2, gates, wires, nw)
+    character(len=WLAB_LEN), intent(in) :: lab1, lab2
+    type(wire_t), intent(inout), allocatable :: wires(:)
+    integer, intent(inout) :: nw
+    type(gate_t), intent(inout) :: gates(:)
+
+    integer :: id1, id2, nw0, i1, i2
+
+    nw0 = nw
+    call add_wire(wires, nw, lab1, id1)
+    call add_wire(wires, nw, lab2, id2)
+    if (nw /= nw0) error stop 'wire not found'
+    if (count(gates%wc==id1)/=1 .or. count(gates%wc==id2)/=1) error stop 'multiple outputs'
+
+    i1 = findloc(gates%wc, id1, dim=1)
+    i2 = findloc(gates%wc, id2, dim=1)
+    gates(i1)%wc = id2
+    gates(i2)%wc = id1
+    print *, 'swapped ',lab1//' '//lab2
+
+
+  end subroutine swap_outputs
 
 
   subroutine read_wire(str, wires, nw)
@@ -195,14 +226,39 @@ print *, 'unevaluated gates = ', count(.not. defined)
   end function i2b
 
 
+  subroutine print_gate(this, wires, nw)
+    class(gate_t), intent(in) :: this
+    type(wire_t), intent(in) :: wires(:)
+    integer, intent(in) :: nw
+
+    character(len=WLAB_LEN) :: a, b, c
+    character(len=3) typ
+
+    a = wires(this%wa)%lab
+    b = wires(this%wb)%lab
+    c = wires(this%wc)%lab
+    select case(this%typ)
+    case(TYP_AND)
+      typ = 'and'
+    case(TYP_OR)
+      typ = 'or'
+    case(TYP_XOR)
+      typ = 'xor'
+    end select
+    if (a(1:1)=='x' .or. b(1:1)=='x') then
+    print *, a//' '//typ//' '//b//' -> '//c
+    end if
+  end subroutine print_gate
+
+
   subroutine day2424(file)
     character(len=*), intent(in) :: file
 
     integer(I8) :: ans1
-    type(wire_t), allocatable :: wires(:)
+    type(wire_t), allocatable :: wires(:), wires_p1(:)
     type(gate_t), allocatable :: gates(:)
     type(string_t), allocatable :: lines(:)
-    integer :: nw, i, j
+    integer :: nw, i, j, fid
 
     ! Parse wires and gates
     lines = read_strings(file)
@@ -213,22 +269,36 @@ print *, 'unevaluated gates = ', count(.not. defined)
     if (i==size(lines)+1) error stop 'day24 - no empty line in the input'
 
     allocate(gates(size(lines)-i))
+    open(newunit=fid, file='tmp.graph', status='replace')
     do j = i+1, size(lines)
-      call connect_gate(lines(j)%str, gates(j-i), wires, nw)
+      call connect_gate(lines(j)%str, gates(j-i), wires, nw, fid)
     end do
     print '("Found ",i0," wires and ",i0," gates in the input file")', nw, size(gates) 
+    close(fid)
 
     ! Evaluate network for Part 1
+    wires_p1 = wires
+    call evaluate_gates(gates, wires_p1)
+    ans1 = read_output(wires_p1, nw, 'z')
+
+    ! Correct network for Part 2
+    ! Manually using graphviz
+    call swap_outputs('z19','sbg', gates, wires, nw)
+    call swap_outputs('z12','djg', gates, wires, nw)
+    call swap_outputs('hjm','mcq', gates, wires, nw)
+    call swap_outputs('z37','dsd', gates, wires, nw)
+    ! answer
+    ! djg,dsd,hjm,mcq,sbg,z12,z19,z37
+
+    ! Evaluate corrected network
     call evaluate_gates(gates, wires)
-    ans1 = read_output(wires, nw, 'z')
 
     print '(i0," + ",i0," = ",i0)', &
       read_output(wires,nw,'x'), read_output(wires,nw,'y'), read_output(wires,nw,'z')
     print '(i0," + ",i0," = ",i0)', &
       read_output(wires,nw,'x'), read_output(wires,nw,'y'), read_output(wires,nw,'x')+read_output(wires,nw,'y')
-    print *, i2b(read_output(wires,nw,'z')) 
-    print *, i2b(read_output(wires,nw,'x')+read_output(wires,nw,'y')) 
 
     print '("Ans 24/1 ",i0,l2)', ans1, ans1==64755511006320_I8
+    print '("Ans 24/2 ",a)', 'djg,dsd,hjm,mcq,sbg,z12,z19,z37'
   end subroutine day2424
 end module day2424_mod

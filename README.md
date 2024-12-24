@@ -117,5 +117,11 @@ Simulate pseudo-random number generator to obtain the sequence of 2000 values.
 In part 2, store the differences in a tree (hight 4, 19 childrens), then
 traverse the tree to find the sequence that gives the best sum of values.
 
-## 23
-Kerber-Brosh algorithm to find "cliques"
+## 23: LAN Party
+Kerber-Brosh algorithm to find "cliques". Had to wikipedia and watch a video
+on how this algorithm works.
+
+## 24: Crossed Wires 
+A network of logical gates AND, OR, XOR. The network should add two 44 bit
+numbers, but some wires are incorrect. In Part 2 we are asked to 
+"just fix" the adder (find which wires were swapped)
