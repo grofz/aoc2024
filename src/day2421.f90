@@ -1,13 +1,16 @@
 module day2421_mod
   use parse_mod, only : string_t, read_strings
+  use iso_fortran_env, only : I8 => int64
   implicit none
 
+  ! For each key at any keypad...
   type key_t
-    character(len=1) :: lab
-    integer :: pos(2)
-    logical :: offlimit = .false.
+    character(len=1) :: lab        ! label
+    integer :: pos(2)              ! position [row, col]
+    logical :: offlimit = .false.  ! finger may not pass over this "key"
   end type
 
+  ! Keys at the numeric keypad
   type(key_t), parameter :: &
     KEY_7 = key_t('7',[1,1]), &
     KEY_8 = key_t('8',[1,2]), &
@@ -22,6 +25,7 @@ module day2421_mod
     KEY_0 = key_t('0',[4,2]), &
     KEY_A = key_t('A',[4,3])
 
+  ! Keys at the directional keypad
   type(key_t), parameter :: &
     KEY_DX    = key_t('X',[1,1],offlimit=.true.), &
     KEY_UP    = key_t('^',[1,2]), &
@@ -30,26 +34,43 @@ module day2421_mod
     KEY_DOWN  = key_t('v',[2,2]), &
     KEY_RIGHT = key_t('>',[2,3])
 
+  ! Which direction the finger moves by pressing a particularly labeled key?
   integer, parameter, dimension(2,4) :: DIRS = reshape( &
       & [ -1,0, 0,-1, 1,0, 0,1], [2,4])
   character(len=*), parameter :: DIRS_CH='^<v>'
 
+  ! Hash-table
+  character(len=*), parameter :: HASH_TABLE = "^<v>A0123456789"
+
+  ! A keypad (TODO: do we need this user-defined type?)
   type board_t
     type(key_t), allocatable :: keys(:)
   end type
 
+  ! There are just two keypad kinds
+  integer, parameter :: NUMERIC_KEYPAD_KIND=1, DIRAL_KEYPAD_KIND=2
+
 contains
 
-  pure function numeric_board() result(this)
+  pure function hash(ch) result(ind) 
+    character(len=1), intent(in) :: ch
+    integer :: ind
+
+    ind = scan(HASH_TABLE, ch)
+    if (ind==0) error stop 'could not find hash of a particular character'
+  end function hash
+
+
+  pure function numeric_keypad() result(this)
     type(board_t) :: this
     this%keys = [KEY_7, KEY_4, KEY_1, KEY_X, KEY_8, KEY_5, KEY_2, KEY_0, KEY_9, KEY_6, KEY_3, KEY_A]
-  end function numeric_board
+  end function numeric_keypad
 
 
-  pure function diral_board() result(this)
+  pure function diral_keypad() result(this)
     type(board_t) :: this
     this%keys = [KEY_DX, KEY_LEFT, KEY_UP, KEY_DOWN, KEY_DA, KEY_RIGHT]
-  end function diral_board
+  end function diral_keypad
 
 
   function instructions(this, str) result(res)
@@ -183,28 +204,113 @@ contains
   end function valid_path
 
 
+  recursive subroutine keystrokes(seq, uplevel, maxlevel, keypads, nkeys, mem)
+    character(len=2), intent(in) :: seq
+    integer, intent(in) :: uplevel, maxlevel
+    type(board_t), intent(in) :: keypads(:)
+    integer(I8), intent(out) :: nkeys
+    integer(I8), intent(inout), allocatable :: mem(:,:,:)
+!
+! Return the minimum number of keystrokes on level-1 keypad required
+! to move the finger at the level-"uplevel" keypad from the position
+! "seq(1:1)" to the position "seq(2:2)" and  press key at final position.
+!
+    integer(I8) :: nkeys0, nkeys1
+    integer :: keypad_kind, ipath, i
+    type(string_t), allocatable :: path(:)
+    integer(I8), parameter :: UNKNOWN=-1
+
+    ! In the first call - set-up the memoization table
+    if (.not. allocated(mem)) then
+      allocate(mem(len(HASH_TABLE), len(HASH_TABLE), maxlevel), source=UNKNOWN)
+    end if
+
+    ! Moving finger at level-1 keypad is free, just press the button
+    if (uplevel == 1) then
+      nkeys = 1
+      return
+    end if
+
+    ! Check the memoization table first if we know the result
+    nkeys = mem(hash(seq(1:1)), hash(seq(2:2)), uplevel)
+    if (nkeys /= UNKNOWN) return
+
+print '("Up-level ",i0," sequence ",a,2(1x,i0))', uplevel, seq, hash(seq(1:1)), hash(seq(2:2))
+
+    ! Plan the route on the level-"uplevel" keypad, return the sequence of
+    ! key-strokes made on the current level keypad.
+    if (uplevel==maxlevel) then
+      keypad_kind = NUMERIC_KEYPAD_KIND
+    else
+      keypad_kind = DIRAL_KEYPAD_KIND
+    end if
+    path = move(keypads(keypad_kind), seq)
+
+    ! Then recursively evaluate this sequence to obtain the result
+    ! There can be up to two possible paths
+    nkeys = huge(nkeys)
+    do ipath=1, size(path)
+      ! add key "A" at the start and the end of the path
+      path(ipath) = string_t('A'//path(ipath)%str//'A')
+      nkeys0 = 0
+      do i=1, len(path(ipath)%str)-1
+        call keystrokes(path(ipath)%str(i:i+1), uplevel-1, maxlevel, keypads, nkeys1, mem)
+        nkeys0 = nkeys0 + nkeys1
+      end do
+      if (nkeys0 < nkeys) nkeys = nkeys0
+    end do
+
+    ! Remember the result
+    mem(hash(seq(1:1)), hash(seq(2:2)), uplevel) = nkeys
+  end subroutine keystrokes
+
+
   subroutine day2421(file)
     character(len=*), intent(in) :: file
 
     type(string_t), allocatable :: lines(:)
-    type(board_t) :: door, radiation, freezer
-    integer :: min_press, i, val, ans1
+    type(board_t) :: keypads(2)
+    integer :: min_press, i, val, j, ipart
+    integer(I8) :: nkeys, nkeys0, ans(2)
+    integer(I8), allocatable :: mem(:,:,:)
+    character(len=1) :: pch
+    integer, parameter, dimension(2) :: nkeypads = [4, 27]
 
-
-    door = numeric_board()
-    radiation = diral_board()
-    freezer = diral_board()
+    keypads(NUMERIC_KEYPAD_KIND) = numeric_keypad()
+    keypads(DIRAL_KEYPAD_KIND) = diral_keypad()
     lines = read_strings(file)
 
-    ans1 = 0
-    do i=1, size(lines)
-      read(lines(i)%str(1:3),*) val
-      call process_code(lines(i)%str, door, radiation, freezer, min_press)
-      ans1 = ans1 + val * min_press
-print *, lines(i)%str, val, min_press
-    end do
+    ans = 0
+    PART: do ipart=1,2
+      if (allocated(mem)) deallocate(mem)
+      do i=1, size(lines)
+        read(lines(i)%str(1:3),*) val
 
-    print '("Ans 21/1 ",i0,l2)', ans1, ans1==213536
+        nkeys = 0
+        do j=1, len(lines(i)%str)
+          if (j==1) then
+            pch = 'A'
+          else
+            pch = lines(i)%str(j-1:j-1)
+          end if
+        !call keystrokes(pch//lines(i)%str(j:j), 4, 4, keypads, nkeys0, mem)
+        ! call keystrokes(pch//lines(i)%str(j:j), 27, 27, keypads, nkeys0, mem)
+          call keystrokes(pch//lines(i)%str(j:j), nkeypads(ipart), nkeypads(ipart), keypads, nkeys0, mem)
+          nkeys = nkeys + nkeys0
+        end do
+
+  !print '("Old method ",i0,"  New method ",i0)', min_press, nkeys
+
+  !     ans1 = ans1 + val * min_press
+  !     ans1 = ans1 + val * nkeys
+        ans(ipart) = ans(ipart) + val * nkeys
+  print *, lines(i)%str, val, nkeys
+      end do
+print *, 'hashed values =', count(mem/=-1)
+    end do PART
+
+    print '("Ans 21/1 ",i0,l2)', ans(1), ans(1)==213536
+    print '("Ans 21/2 ",i0,l2)', ans(2), ans(2)==258369757013802_i8
   end subroutine day2421
 
 
