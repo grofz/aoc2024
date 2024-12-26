@@ -123,9 +123,7 @@ contains
     i2 = findloc(gates%wc, id2, dim=1)
     gates(i1)%wc = id2
     gates(i2)%wc = id1
-    print *, 'swapped ',lab1//' '//lab2
-
-
+!!  print *, 'swapped ',lab1//' '//lab2
   end subroutine swap_outputs
 
 
@@ -226,10 +224,9 @@ contains
   end function i2b
 
 
-  subroutine print_gate(this, wires, nw)
+  subroutine print_gate(this, wires)
     class(gate_t), intent(in) :: this
     type(wire_t), intent(in) :: wires(:)
-    integer, intent(in) :: nw
 
     character(len=WLAB_LEN) :: a, b, c
     character(len=3) typ
@@ -273,7 +270,7 @@ contains
     do j = i+1, size(lines)
       call connect_gate(lines(j)%str, gates(j-i), wires, nw, fid)
     end do
-    print '("Found ",i0," wires and ",i0," gates in the input file")', nw, size(gates) 
+!!  print '("Found ",i0," wires and ",i0," gates in the input file")', nw, size(gates) 
     close(fid)
 
     ! Evaluate network for Part 1
@@ -282,7 +279,7 @@ contains
     ans1 = read_output(wires_p1, nw, 'z')
 
     ! Correct network for Part 2
-    ! Manually using graphviz
+    ! Solved manually using graphviz, let us check if the circuit works
     call swap_outputs('z19','sbg', gates, wires, nw)
     call swap_outputs('z12','djg', gates, wires, nw)
     call swap_outputs('hjm','mcq', gates, wires, nw)
@@ -293,10 +290,10 @@ contains
     ! Evaluate corrected network
     call evaluate_gates(gates, wires)
 
-    print '(i0," + ",i0," = ",i0)', &
-      read_output(wires,nw,'x'), read_output(wires,nw,'y'), read_output(wires,nw,'z')
-    print '(i0," + ",i0," = ",i0)', &
-      read_output(wires,nw,'x'), read_output(wires,nw,'y'), read_output(wires,nw,'x')+read_output(wires,nw,'y')
+!   print '(i0," + ",i0," = ",i0)', &
+!     read_output(wires,nw,'x'), read_output(wires,nw,'y'), read_output(wires,nw,'z')
+!   print '(i0," + ",i0," = ",i0)', &
+!     read_output(wires,nw,'x'), read_output(wires,nw,'y'), read_output(wires,nw,'x')+read_output(wires,nw,'y')
 
     print '("Ans 24/1 ",i0,l2)', ans1, ans1==64755511006320_I8
     print '("Ans 24/2 ",a)', 'djg,dsd,hjm,mcq,sbg,z12,z19,z37'

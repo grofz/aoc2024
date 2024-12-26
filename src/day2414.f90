@@ -36,7 +36,6 @@ contains
     ans1 = -1
     do i=1, product(MAP_SIZE)
       call robot_move(robots)
-!to_draw = i>6000 .and. i<7000
       if (to_draw) print *, i
       call plot_positions(robots, nquad, to_draw, tree_found)
       if (tree_found .and. ans2==-1) ans2 = i
@@ -45,8 +44,8 @@ contains
 associate(e=>entropy(robots))
   if (e<=emin) then
     emin = e
-call plot_positions(robots, nquad, .true., tree_found)
-    print *, i, emin
+!call plot_positions(robots, nquad, .true., tree_found)
+!    print *, i, emin
   end if
 end associate
     end do

@@ -10,7 +10,7 @@ module day2421_mod
     logical :: offlimit = .false.  ! finger may not pass over this "key"
   end type
 
-  ! Keys at the numeric keypad
+  ! Keys at the numeric keypad hardcoded
   type(key_t), parameter :: &
     KEY_7 = key_t('7',[1,1]), &
     KEY_8 = key_t('8',[1,2]), &
@@ -25,7 +25,7 @@ module day2421_mod
     KEY_0 = key_t('0',[4,2]), &
     KEY_A = key_t('A',[4,3])
 
-  ! Keys at the directional keypad
+  ! Keys at the directional keypad hardcoded
   type(key_t), parameter :: &
     KEY_DX    = key_t('X',[1,1],offlimit=.true.), &
     KEY_UP    = key_t('^',[1,2]), &
@@ -42,9 +42,12 @@ module day2421_mod
   ! Hash-table
   character(len=*), parameter :: HASH_TABLE = "^<v>A0123456789"
 
-  ! A keypad (TODO: do we need this user-defined type?)
-  type board_t
+  ! A keypad
+  type keypad_t
     type(key_t), allocatable :: keys(:)
+  contains
+    procedure :: path => keypad_path
+    procedure :: validpath => keypad_validpath
   end type
 
   ! There are just two keypad kinds
@@ -55,74 +58,41 @@ contains
   pure function hash(ch) result(ind) 
     character(len=1), intent(in) :: ch
     integer :: ind
-
+!
+! Convert a character to a an index used in the memoization table
+!
     ind = scan(HASH_TABLE, ch)
-    if (ind==0) error stop 'could not find hash of a particular character'
+    if (ind==0) error stop 'could not obtain index for the character on input'
   end function hash
 
 
-  pure function numeric_keypad() result(this)
-    type(board_t) :: this
-    this%keys = [KEY_7, KEY_4, KEY_1, KEY_X, KEY_8, KEY_5, KEY_2, KEY_0, KEY_9, KEY_6, KEY_3, KEY_A]
-  end function numeric_keypad
+  pure function new_keypad(keypad_kind) result(this)
+    integer, intent(in) :: keypad_kind
+    type(keypad_t) :: this
+
+    select case(keypad_kind)
+    case(NUMERIC_KEYPAD_KIND)
+      this%keys = &
+      &   [KEY_7, KEY_4, KEY_1, KEY_X, KEY_8, KEY_5, KEY_2, KEY_0, KEY_9, KEY_6, KEY_3, KEY_A]
+    case(DIRAL_KEYPAD_KIND)
+      this%keys = &
+      &   [KEY_DX, KEY_LEFT, KEY_UP, KEY_DOWN, KEY_DA, KEY_RIGHT]
+    end select
+  end function new_keypad
 
 
-  pure function diral_keypad() result(this)
-    type(board_t) :: this
-    this%keys = [KEY_DX, KEY_LEFT, KEY_UP, KEY_DOWN, KEY_DA, KEY_RIGHT]
-  end function diral_keypad
-
-
-  function instructions(this, str) result(res)
-    class(board_t), intent(in) :: this
-    character(len=*), intent(in) :: str
-    type(string_t), allocatable :: res(:)
-
-    character(len=1) :: pch
-    type(string_t), allocatable :: res0(:), tmp(:)
-    integer :: i, j
-
-    allocate(res(1))
-    res(1) = string_t('')
-
-    do i=1, len(str)
-      if (i==1) then
-        pch = 'A'
-      else 
-        pch = str(i-1:i-1)
-      end if
-      res0 = move(this, pch//str(i:i))
-      select case (size(res0))
-      case(1)
-        ! just append instructions at the end
-        do j=1, size(res)
-          res(j) = string_t(res(j)%str//res0(1)%str//'A')
-        end do
-      case(2)
-        ! duplicate and just append instructions at the end
-        allocate(tmp(size(res)*2))
-        do j=1, size(res)
-          tmp(j) = string_t(res(j)%str//res0(1)%str//'A')
-          tmp(size(res)+j) = string_t(res(j)%str//res0(2)%str//'A')
-        end do
-        call move_alloc(tmp, res)
-      case default
-        error stop 'invalid branch'
-      end select
-    end do
-  end function instructions
-
-
-  function move(this, edge) result(res)
-    class(board_t), intent(in) :: this
+  function keypad_path(this, edge) result(res)
+    class(keypad_t), intent(in) :: this
     character(len=2), intent(in) :: edge
     type(string_t), allocatable :: res(:)
-
-    integer :: bp(2), ep(2), xp(2), pos, i, j
+!
+! Return one or two paths to move finger from edge(1:1) to edge(2:2)
+!
+    integer :: bp(2), ep(2), pos, i, j
     type(string_t) :: res0(2)
     logical :: res0_valid(2)
 
-   !pos = findloc(this%keys%lab, edge(1:1), dim=1)
+!   pos = findloc(this%keys%lab, edge(1:1), dim=1)
     do pos=1, size(this%keys)
       if (this%keys(pos)%lab==edge(1:1)) exit
     end do
@@ -163,8 +133,8 @@ contains
     end associate
 
     ! now simulate the path to see if it goes over "offlimit" keys
-    res0_valid(1) = valid_path(this, res0(1)%str, bp, ep)
-    res0_valid(2) = valid_path(this, res0(2)%str, bp, ep)
+    res0_valid(1) = this%validpath(res0(1)%str, bp, ep)
+    res0_valid(2) = this%validpath(res0(2)%str, bp, ep)
 
     ! avoid duplicit results
     if (res0(1)%str==res0(2)%str) res0_valid(2) = .false.
@@ -176,15 +146,17 @@ contains
       j = j + 1
       res(j) = string_t(res0(i)%str)
     end do
-  end function move
+  end function keypad_path
 
 
-  function valid_path(this, str, bp, ep) result(yes)
-    class(board_t), intent(in) :: this
+  pure function keypad_validpath(this, str, bp, ep) result(yes)
+    class(keypad_t), intent(in) :: this
     character(len=*), intent(in) :: str
     integer, intent(in) :: bp(2), ep(2)
     logical :: yes
-
+!
+! Used to check if the path goes over the "off-limits" position on the keypad
+!
     integer :: xp(2), i, j
 
     yes = .true.
@@ -194,74 +166,71 @@ contains
         if (all(this%keys(j)%pos==xp)) exit
       end do
       if (j==size(this%keys)+1) error stop 'could not find index of the xp'
-      if (this%keys(j)%offlimit) then
-        yes = .false.
-      end if
+      if (this%keys(j)%offlimit) yes = .false.
       if (i>len(str)) exit
       xp = xp + DIRS(:, index(DIRS_CH, str(i:i)))
     end do
     if (.not. all(xp==ep)) error stop 'ending position does not match'
-  end function valid_path
+  end function keypad_validpath
 
 
   recursive subroutine keystrokes(seq, uplevel, maxlevel, keypads, nkeys, mem)
     character(len=2), intent(in) :: seq
     integer, intent(in) :: uplevel, maxlevel
-    type(board_t), intent(in) :: keypads(:)
+    type(keypad_t), intent(in) :: keypads(:)
     integer(I8), intent(out) :: nkeys
     integer(I8), intent(inout), allocatable :: mem(:,:,:)
 !
-! Return the minimum number of keystrokes on level-1 keypad required
+! Return the minimum number of keystrokes at level-1 keypad required
 ! to move the finger at the level-"uplevel" keypad from the position
-! "seq(1:1)" to the position "seq(2:2)" and  press key at final position.
+! "seq(1:1)" to the position "seq(2:2)" followed by pressing the key at
+! final position.
 !
-    integer(I8) :: nkeys0, nkeys1
-    integer :: keypad_kind, ipath, i
-    type(string_t), allocatable :: path(:)
+    integer(I8) :: nkeys0, nsum
     integer(I8), parameter :: UNKNOWN=-1
-
-    ! In the first call - set-up the memoization table
-    if (.not. allocated(mem)) then
-      allocate(mem(len(HASH_TABLE), len(HASH_TABLE), maxlevel), source=UNKNOWN)
-    end if
+    integer :: ipath, i
+    type(string_t), allocatable :: path(:)
 
     ! Moving finger at level-1 keypad is free, just press the button
     if (uplevel == 1) then
       nkeys = 1
-      return
+      return ! no-recursion branch
     end if
 
-    ! Check the memoization table first if we know the result
+    ! For the first call - set-up the memoization table
+    if (.not. allocated(mem)) then
+      allocate(mem(len(HASH_TABLE), len(HASH_TABLE), maxlevel), source=UNKNOWN)
+    end if
+
+    ! Check the memoization table first if we already know the result
     nkeys = mem(hash(seq(1:1)), hash(seq(2:2)), uplevel)
     if (nkeys /= UNKNOWN) return
 
-print '("Up-level ",i0," sequence ",a,2(1x,i0))', uplevel, seq, hash(seq(1:1)), hash(seq(2:2))
-
-    ! Plan the route on the level-"uplevel" keypad, return the sequence of
-    ! key-strokes made on the current level keypad.
+    ! Plan the path on the level-"uplevel" keypad, return the sequence of
+    ! key-strokes that has to be pressed at the current level keypad.
     if (uplevel==maxlevel) then
-      keypad_kind = NUMERIC_KEYPAD_KIND
+      path = keypads(NUMERIC_KEYPAD_KIND)%path(seq)
     else
-      keypad_kind = DIRAL_KEYPAD_KIND
+      path = keypads(DIRAL_KEYPAD_KIND)%path(seq)
     end if
-    path = move(keypads(keypad_kind), seq)
 
-    ! Then recursively evaluate this sequence to obtain the result
-    ! There can be up to two possible paths
+    ! Then recursively evaluate the path sequence to obtain the result
+    ! There can be up to two possible paths, we should try both of them
     nkeys = huge(nkeys)
     do ipath=1, size(path)
       ! add key "A" at the start and the end of the path
       path(ipath) = string_t('A'//path(ipath)%str//'A')
-      nkeys0 = 0
+      nsum = 0
       do i=1, len(path(ipath)%str)-1
-        call keystrokes(path(ipath)%str(i:i+1), uplevel-1, maxlevel, keypads, nkeys1, mem)
-        nkeys0 = nkeys0 + nkeys1
+        call keystrokes(path(ipath)%str(i:i+1), uplevel-1, maxlevel, keypads, nkeys0, mem)
+        nsum = nsum + nkeys0
       end do
-      if (nkeys0 < nkeys) nkeys = nkeys0
+      if (nsum < nkeys) nkeys = nsum
     end do
 
     ! Remember the result
     mem(hash(seq(1:1)), hash(seq(2:2)), uplevel) = nkeys
+!print '("Up-level ",i0," sequence ",a,": ",i0," keystrokes")', uplevel, seq, nkeys
   end subroutine keystrokes
 
 
@@ -269,81 +238,45 @@ print '("Up-level ",i0," sequence ",a,2(1x,i0))', uplevel, seq, hash(seq(1:1)), 
     character(len=*), intent(in) :: file
 
     type(string_t), allocatable :: lines(:)
-    type(board_t) :: keypads(2)
-    integer :: min_press, i, val, j, ipart
-    integer(I8) :: nkeys, nkeys0, ans(2)
+    type(keypad_t) :: keypads(2)
+    integer :: iline, val, j, ipart
+    integer(I8) :: nkeys, totkeys, ans(2)
     integer(I8), allocatable :: mem(:,:,:)
     character(len=1) :: pch
-    integer, parameter, dimension(2) :: nkeypads = [4, 27]
+    integer, parameter, dimension(2) :: nlevels = [4, 27]
 
-    keypads(NUMERIC_KEYPAD_KIND) = numeric_keypad()
-    keypads(DIRAL_KEYPAD_KIND) = diral_keypad()
+    keypads(NUMERIC_KEYPAD_KIND) = new_keypad(NUMERIC_KEYPAD_KIND)
+    keypads(DIRAL_KEYPAD_KIND) = new_keypad(DIRAL_KEYPAD_KIND)
     lines = read_strings(file)
 
     ans = 0
-    PART: do ipart=1,2
-      if (allocated(mem)) deallocate(mem)
-      do i=1, size(lines)
-        read(lines(i)%str(1:3),*) val
+    PART: do ipart = 1, 2
+      if (allocated(mem)) deallocate(mem) ! clean memoization table
 
-        nkeys = 0
-        do j=1, len(lines(i)%str)
-          if (j==1) then
-            pch = 'A'
-          else
-            pch = lines(i)%str(j-1:j-1)
-          end if
-        !call keystrokes(pch//lines(i)%str(j:j), 4, 4, keypads, nkeys0, mem)
-        ! call keystrokes(pch//lines(i)%str(j:j), 27, 27, keypads, nkeys0, mem)
-          call keystrokes(pch//lines(i)%str(j:j), nkeypads(ipart), nkeypads(ipart), keypads, nkeys0, mem)
-          nkeys = nkeys + nkeys0
-        end do
+      LINE: do iline = 1, size(lines)
+        associate(code=>lines(iline)%str)
+          ! number of keystrokes to type the code
+          totkeys = 0
+          do j=1, len(code)
+            if (j==1) then
+              pch = 'A'
+            else
+              pch = code(j-1:j-1)
+            end if
+            call keystrokes(pch//code(j:j), nlevels(ipart), nlevels(ipart), keypads, nkeys, mem)
+            totkeys = totkeys + nkeys
+          end do
 
-  !print '("Old method ",i0,"  New method ",i0)', min_press, nkeys
+          ! code "complexity"
+          read(code(1:3),*) val
+          ans(ipart) = ans(ipart) + val * totkeys
+        end associate
+      end do LINE
 
-  !     ans1 = ans1 + val * min_press
-  !     ans1 = ans1 + val * nkeys
-        ans(ipart) = ans(ipart) + val * nkeys
-  print *, lines(i)%str, val, nkeys
-      end do
-print *, 'hashed values =', count(mem/=-1)
     end do PART
 
     print '("Ans 21/1 ",i0,l2)', ans(1), ans(1)==213536
     print '("Ans 21/2 ",i0,l2)', ans(2), ans(2)==258369757013802_i8
   end subroutine day2421
-
-
-  subroutine process_code(inp, door, radiation, freezer, min_press)
-    character(len=*), intent(in) :: inp
-    type(board_t), intent(in) :: door, radiation, freezer
-    integer, intent(out) :: min_press
-
-    integer :: i, j, k
-    type(string_t), allocatable :: paths_door(:), paths_radiation(:), paths_freezer(:)
-
-    min_press = huge(min_press)
-    paths_door = instructions(door, trim(inp))
-    A: do i=1, size(paths_door)
-!!    print '("door  ",a,1x,i0)', paths_door(i)%str, len(paths_door(i)%str)
-
-      paths_radiation = instructions(radiation, paths_door(i)%str)
-      B: do j=1, size(paths_radiation)
-!!      print '("radiation  ",a,1x,i0)', paths_radiation(j)%str, len(paths_radiation(j)%str)
-
-        paths_freezer = instructions(freezer, paths_radiation(j)%str)
-        C: do k=1, size(paths_freezer)
-!!        print '("freez  ",a,1x,i0)', paths_freezer(k)%str, len(paths_freezer(k)%str)
-          if (len(paths_freezer(k)%str)<min_press) &
-            min_press = len(paths_freezer(k)%str)
-        end do C
-
-!!      print *
-      end do B
-
-!!    print *, repeat('-',80)
-!!    print *
-    end do A
-  end subroutine
 
 end module day2421_mod
